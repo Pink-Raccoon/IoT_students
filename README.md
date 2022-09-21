@@ -5,4 +5,3 @@
 ### Übersicht
 [Online Beschreibungen der Praktika und Aufgaben](https://github.zhaw.ch/pages/IoT/IoT-IoT_students/)
 
-[Praktika.pdf](https://github.zhaw.ch/IoT/IoT_students/blob/master/build/latex/main.pdf)

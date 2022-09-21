@@ -1,0 +1,474 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>01 - Setup Laboratory &#8212; IoT Labs  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css" />
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="02 - CoAP" href="../lab_02/README.html" />
+    <link rel="prev" title="IoT Laboratories" href="../index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section class="tex2jax_ignore mathjax_ignore" id="setup-laboratory">
+<h1>01 - Setup Laboratory<a class="headerlink" href="#setup-laboratory" title="Permalink to this headline">¶</a></h1>
+<section id="introduction">
+<h2>1. Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>This lab covers the introduction of the laboratory infrastructure. Secondly we are going to download a hard disk image and set up the Raspberry Pi with the additional GrovePi Board which is connected to some of the Raspberry Pis GPIO pins.</p>
+<p>If all the components were set up successfully we connect some sensors and/or actuators to the GrovePi boards and see if they work as expected by executing a provided test program.</p>
+<p>As last part of this laboratory we are going to write a simple Python script which does interact with a rotary angle sensory and two LEDs.</p>
+</section>
+<section id="learning-aims">
+<h2>2. Learning Aims<a class="headerlink" href="#learning-aims" title="Permalink to this headline">¶</a></h2>
+<p>There are no learning aims associated with this laboratory exercise.</p>
+</section>
+<section id="prerequisites">
+<h2>3. Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
+<ol class="arabic simple">
+<li><p>Raspberry Pi device (with MAC address labeled around the Ethernet port)
+1.1 [micro]SD card with at least 8 GB capacity
+1.2 Raspberry Pi Power supply</p></li>
+<li><p>1 GrovePi board</p></li>
+<li><p>1 rotary angle sensor</p></li>
+<li><p>2 LEDs (colour indifferent)</p></li>
+<li><p>1 computer (your own laptop or a lab machine)
+5.1 Ethernet port<br />
+5.2 SSH client installed (ssh, PuTTY, …)<br />
+5.3 FTP client installed (Windows explorer, filezilla, Firefox, console ftp, …)<br />
+5.4 Byte level copy software (dd, cat, Win32DiskImager, …)<br />
+5.5 Zip software (7-zip, WinZip, Windows zip, …)<br />
+5.6 USB port or [micro]SD card slot</p></li>
+</ol>
+</section>
+<section id="getting-started">
+<h2>4. Getting started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h2>
+<section id="environment-overview">
+<h3>4.1 Environment overview<a class="headerlink" href="#environment-overview" title="Permalink to this headline">¶</a></h3>
+<p>In the rooms where the IoT laboratories take place, exists a capacity of 70 Ethernet ports which provide the ability to connect devices to the IoT subnet (172.16.32.0/24). The ports are distributed according the following illustration:</p>
+<p><img alt="lab_infrastructure_ports_te523.png" src="../_images/lab_infrastructure_ports_te523.png" /></p>
+<p>In HS2021 the IoT course is held in many different rooms (TE523, TE524, TE528). The description and the capacity may vary along the rooms, but the principle stays the same. Just use the dedicated 8 port IoT switches to connect your devices.</p>
+<section id="general-notes-about-the-iot-lab-infrastructure">
+<h4>4.1.1 General notes about the IoT lab infrastructure<a class="headerlink" href="#general-notes-about-the-iot-lab-infrastructure" title="Permalink to this headline">¶</a></h4>
+<p>When booting your device and <strong>make sure that the wireless adapters are turned off and your wired Ethernet adapter is configured to obtain the IP address settings and DNS settings automatically (DHCP)</strong>. Wait until your network is configured. On Windows machines this procedure may take ~ 1 minute.</p>
+<p>If you are working with the lab machine make sure the network connection to the ZHAW LAN is disconnected. Connect the desired interface to the 8 port switch above your desks instead. <strong>Do not use your ZHAW credentials to log into the lab machine</strong>, use these credentials instead:</p>
+<p>User: <strong>.\ktlabor</strong></p>
+<p>Password: <strong>KT-Praktika</strong></p>
+<p>To test if all the network settings work flawlessly ping the host <strong>jupiter.lab.iot</strong> and the host <strong>google.com</strong> and see if you get a reply or just start a web browser and try to open external websites.</p>
+</section>
+</section>
+<section id="remote-laboratory">
+<h3>4.2 Remote Laboratory<a class="headerlink" href="#remote-laboratory" title="Permalink to this headline">¶</a></h3>
+<p>For those who want to work from home and use their home network infrastructure to work on the laboratories, the Raspberry Pi disk image is also available through a public switch drive link: <a class="reference external" href="https://drive.switch.ch/index.php/s/7xvYDcOV0ZzNuxg">https://drive.switch.ch/index.php/s/7xvYDcOV0ZzNuxg</a></p>
+<p>When working in your own network infrastructure, the only prerequisite which is recommended is a DHCP server. As of today such a DHCP server application is often already embedded on your internet router at home. To obtain which IP address was given to which MAC address (the one written on the Raspberry Pi case), just consult the current leases of your DHCP server or use the program <strong>nmap</strong> to scan your private subnet for which hosts are currently up,
+e.g.:
+<code class="docutils literal notranslate"><span class="pre">nmap</span> <span class="pre">-sP</span> <span class="pre">192.168.1.0/24</span></code></p>
+</section>
+<section id="preparing-the-hard-disk-image">
+<h3>4.3 Preparing the hard disk image<a class="headerlink" href="#preparing-the-hard-disk-image" title="Permalink to this headline">¶</a></h3>
+<section id="download-the-hard-disk-image">
+<h4>4.3.1 Download the hard disk image<a class="headerlink" href="#download-the-hard-disk-image" title="Permalink to this headline">¶</a></h4>
+<p>Connect your device (laptop, lab machine, …) to a switch above your desks (as mentioned earlier).</p>
+<p>Now, the hard disk image can be downloaded. Open a FTP client of your choice and connect with the following credentials:</p>
+<p>Server/Host: <strong>jupiter.lab.iot (ftp://jupiter.lab.iot)</strong><br />
+User: <strong>iotro</strong><br />
+Password: <strong>iotro</strong></p>
+<p>The hard disk image can be found on the FTP server at the location:<br />
+<strong>/shared/IoT/p1</strong>
+Download the file <strong>iot1_rpi_hs2021.img.zip</strong> and store it somewhere on your machine.</p>
+<p>Time to take a break. If connected via 1 Gbit/s, the download will last at most 3 minutes.</p>
+</section>
+<section id="copying-the-image-onto-the-micro-sd-card">
+<h4>4.3.2 Copying the image onto the [micro]SD card<a class="headerlink" href="#copying-the-image-onto-the-micro-sd-card" title="Permalink to this headline">¶</a></h4>
+<p>First unzip the file to have the raw disk image <strong>iot1_rpi_hs2021.img</strong></p>
+<p>Once downloaded and unzipped, the hard disk image can now be copied to a [micro]SD card.</p>
+<p>On Windows systems this can be reached via the software <strong>Win32DiskImager</strong>:
+<a class="reference external" href="http://sourceforge.net/projects/win32diskimager/">http://sourceforge.net/projects/win32diskimager/</a></p>
+<p>On unixoid systems for example the <code class="docutils literal notranslate"><span class="pre">dd</span></code> program can be used:
+<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">dd</span> <span class="pre">if=/path/to/your/iot1_rpi_hs2021.img</span> <span class="pre">of=/dev/sdX</span> <span class="pre">bs=7800000</span> <span class="pre">count=1000</span></code></p>
+<p>(The image has the exact size of 7800000000 Bytes), /dev/sdX is your [micro]SD card device.</p>
+</section>
+</section>
+<section id="assemblage-of-the-raspberry-pi">
+<h3>4.4 Assemblage of the Raspberry Pi<a class="headerlink" href="#assemblage-of-the-raspberry-pi" title="Permalink to this headline">¶</a></h3>
+<section id="grovepi-module">
+<h4>4.4.1 GrovePi module<a class="headerlink" href="#grovepi-module" title="Permalink to this headline">¶</a></h4>
+<p>The GrovePi module is a extension board for your Raspberry Pi. It extends your Raspberry Pi with the following easy to use input/output pins:</p>
+<p><img alt="GrovePi.png" src="../_images/GrovePi.png" /></p>
+<ul class="simple">
+<li><p>3 x analogue input A[0-2]. Measures the voltage of the signal at the input pin and converts the voltage level to an integer value ranging from 0 to 1023.</p>
+<ul>
+<li><p>The analogue pins can also be used for digital IO if needed:<br />
+A0 → D14, A1 → D15, A2 → D16</p></li>
+</ul>
+</li>
+<li><p>7 x digital input/output D[2-8]. Simple digital IO can have a value of 0 or 1 (0V or 5V).</p>
+<ul>
+<li><p>The three IO pins D[3,5,6] can also be used to output a PWM signal e.g. to dim an LED:<br />
+Use the function <strong>analogWrite()</strong> with an value ranging from 0 to 255 to use this functionality.</p></li>
+</ul>
+</li>
+<li><p>The pins are normally in input mode so your peripherals will not be damaged. Change the pin mode to output with the function <strong>pinMode(MODE)</strong>, where MODE is <strong>“INPUT”/”OUTPUT”</strong>.</p>
+<ul>
+<li><p>Remember to turn off the output on your pins before exiting your program.</p></li>
+</ul>
+</li>
+<li><p>3 x I2C I2C[-1,-2,-3] to connect more advanced peripherals like a LCD display.</p></li>
+</ul>
+</section>
+<section id="assemblage">
+<h4>4.4.2 Assemblage<a class="headerlink" href="#assemblage" title="Permalink to this headline">¶</a></h4>
+<p>Look at the MAC address which is labelled on the Ethernet/USB port of the Raspberry Pi and write down the corresponding IP address. The IP address is used later to access and control the Raspberry Pi. To get the corresponding IP address consult the document <strong>“mapping_HW_to_IP_addresses.pdf”</strong> which is provided with the IoT laboratories.</p>
+<p>Mount the GrovePi board onto the GPIO pins of the Raspberry Pi.</p>
+<p>Pin no. 1 of the GrovePi board has to be connected to pin no. 1 of the Rasbperry Pi and so on …</p>
+<p>The pin numbers of the GrovePi board are printed directly on the board, the pin numbers of the different Raspberry Pi models are depicted below (View: Pins on top left, USB/Ethernet ports towards right):</p>
+<p><strong>Pi 1 Model A/B (Revision 2.0)</strong></p>
+<p><img alt="Pi_1_Model_A_B_rev2.png" src="../_images/Pi_1_Model_A_B_rev2.png" /></p>
+<p><strong>Pi 1 Model B+</strong></p>
+<p><img alt="Pi_1_Model_B+.png" src="../_images/Pi_1_Model_B+.png" /></p>
+<p><strong>Pi 2 Model B / Pi 3 Model B+</strong></p>
+<p><img alt="Pi_2_Model_B.png" src="../_images/Pi_2_Model_B.png" /></p>
+<p>Insert the [micro]SD card into the slot of the Raspberry Pi.</p>
+<p>Connect the Ethernet port of the Raspberry Pi to a switch in the IoT subnet.</p>
+<p>Connect a LED to the pin D5 of the GrovePi Board.</p>
+<p>Connect a rotary angle sensor (potentiometer) to the analogue port A0.</p>
+<p>Power on (just plug in the power supply) the Raspberry Pi and wait around 20 seconds until it has finished its boot procedure.</p>
+<p>Try to login to the Raspbian operating system (a debian GNU/Linux derivative) which is now running on the Raspberry Pi. Use a SSH client of your choice (ssh, PuTTY, …) and connect to the IP address you wrote down earlier in this laboratory.</p>
+<p>Credentials:<br />
+User: <strong>pi</strong><br />
+Password: <strong>raspberry</strong></p>
+</section>
+<section id="firmware-upgrade-of-the-grove-pi-hat">
+<h4>4.4.3 Firmware upgrade of the Grove Pi hat<a class="headerlink" href="#firmware-upgrade-of-the-grove-pi-hat" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>After successfully logging into the raspbian operating system for the first time, the firmware which runs on the Grove Pi hat should be upgraded in order to work properly in combination with the Python grovepi library that is going to be used during this course.
+To upgrade the Grove Pi firmware, make sure the Grove Pi hat is correctly connected to your Raspberry Pi and run the following commands on the raspbian console:
+cd repos/GrovePi/Firmware/
+sudo bash firmware_update.sh
+When you get prompted: “Do you want to update the firmware?”, confirm this by pressing y and by pressing any key to start the firmware upgrade.
+Look at the two LEDs on the GrovePi board (labeled with RST and PWR). The PWR LED should light up green constantly and the RST LED should stay dark (switched off).
+</pre></div>
+</div>
+</section>
+<section id="known-issue-only-on-raspberry-pi-1-model-b">
+<h4>Known Issue (only on Raspberry Pi 1 Model B)<a class="headerlink" href="#known-issue-only-on-raspberry-pi-1-model-b" title="Permalink to this headline">¶</a></h4>
+<p>On the Raspberry Pi 1 Model B it was noticed that some of the devices had turned on the RST LED in red constantly right after plugging in the power source. In this case the connection to the GrovePi board was not getting established properly and all of the test programs will fail until the following workaround is applied. After a successful login to the Raspbian operating systems, invoke the following two commands:</p>
+<ul class="simple">
+<li><p>Set the pin configuration via avrdude:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">avrdude</span> <span class="pre">-c</span> <span class="pre">gpio</span> <span class="pre">-p</span> <span class="pre">m328p</span></code></p></li>
+</ul>
+</li>
+<li><p>To ensure the configuration works as expected on the operating system, reboot the machine:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">reboot</span></code></p></li>
+</ul>
+</li>
+</ul>
+<p>After the avrdude command, the RST LED should switch off and only the PWR LED should light up green constantly.</p>
+</section>
+</section>
+</section>
+<section id="execute-a-first-test-application">
+<h2>5. Execute a first test application<a class="headerlink" href="#execute-a-first-test-application" title="Permalink to this headline">¶</a></h2>
+<p>If the login attempt was successful, the current working directory is the user home of the user pi (/home/pi). In the directory /home/pi/repos/GrovePi you will find the cloned software repository which contains all the necessary pieces of software to run the GrovePi board on the Raspberry Pi, including API’s, libraries, firmware updates, installation scripts, test programs, …</p>
+<section id="launch-application">
+<h3>5.1 Launch application<a class="headerlink" href="#launch-application" title="Permalink to this headline">¶</a></h3>
+<p>With all the stuff connected to the Grove Pi board we will now check if the current hardware setup is working correctly:</p>
+<ul class="simple">
+<li><p>Navigate back to the pi user’s home directory</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">cd</span></code></p></li>
+</ul>
+</li>
+<li><p>Change working directory</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">repos/GrovePi/Software/Python</span></code></p></li>
+</ul>
+</li>
+<li><p>run the rotary angle sensor demo</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">grove_rotary_angle_sensor.py</span></code></p></li>
+</ul>
+</li>
+<li><p>You should now be able to change the intensity of the LED by twisting the potentiometer.</p></li>
+<li><p>The program can be terminated by pressing Ctrl + C</p></li>
+</ul>
+</section>
+<section id="study-the-source-code">
+<h3>5.2 Study the source code<a class="headerlink" href="#study-the-source-code" title="Permalink to this headline">¶</a></h3>
+<p>Open the file <strong>grove_rotary_angle_sensor.py</strong> with a cli editor (nano, vim, emacs, …) of your liking and see how this behavior is accomplished.</p>
+<p><code class="docutils literal notranslate"><span class="pre">vim</span> <span class="pre">grove_rotary_angle_sensor.py</span></code></p>
+<ul class="simple">
+<li><p>The correct pins are defined at the beginning.</p></li>
+<li><p>Don’t forget to set the pin mode correctly!</p></li>
+<li><p>Printing the sensor values will make debugging easier.</p></li>
+<li><p>Don’t forget to sleep or only do something if the value has changed.</p></li>
+<li><p>Catch IO-Errors</p></li>
+<li><p>Disable the output on exit (KeyboardInterrupt).</p>
+<ul>
+<li><p>Set all the output pins to 0.</p></li>
+</ul>
+</li>
+<li><p>For every module there is an easy example in this Software folder. If you are not sure how to use a sensor/peripheral, check these examples!</p></li>
+</ul>
+</section>
+<section id="brief-information-about-python">
+<h3>5.3 Brief information about Python<a class="headerlink" href="#brief-information-about-python" title="Permalink to this headline">¶</a></h3>
+<p>The libraries/APIs are entirely written in Python. The code should be easy to read respectively to understand. If you have never used Python before, there are some hints and issues to keep in mind:</p>
+<ul class="simple">
+<li><p>Python is whitespace sensitive. All the code that belongs to the same block has to be intended exactly the same. (spaces and tabs are different). It is recommended that you configure your editor to use an amount of blanks (e.g. 2 or 4) instead of tab characters, when the tab key is pressed. (The vim on your previously installed hard disk image is already configured like this.)</p></li>
+<li><p>There are no brackets for code blocks, only indentation.</p></li>
+<li><p>There is no end of line character except if a new block is starting (e.g. after a while/if, etc. statement) there is a colon (:).</p></li>
+<li><p>There is no switch case statement in Python.</p></li>
+</ul>
+</section>
+</section>
+<section id="write-a-simple-python-application-for-the-grovepi-board">
+<h2>6. Write a simple Python application for the GrovePi board<a class="headerlink" href="#write-a-simple-python-application-for-the-grovepi-board" title="Permalink to this headline">¶</a></h2>
+<p>As we had a quick overview of an example regarding how to programmatically interact with the GrovePi board, it is time now for your first GrovePi Project. We won’t use any IoT protocols yet. We just want to familiarize with the GrovePi module.</p>
+<section id="grovepi-board-setup">
+<h3>6.1 GrovePi board setup<a class="headerlink" href="#grovepi-board-setup" title="Permalink to this headline">¶</a></h3>
+<p>We have the following hardware requirements:</p>
+<ul class="simple">
+<li><p>2 LEDs (colour indifferent)</p></li>
+<li><p>1 rotary angle sensor</p></li>
+</ul>
+<p>Connect them to the GrovePi board. LEDs to digital pins and the rotary angle sensor to a analogue pin. Sometimes it works when reassembling the GrovePi board with other modules in running state but it is recommended that you halt the operating system of the Raspberry Pi (<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">halt</span></code>) and pull out the power supply before modifying the hardware configuration of the GrovePi board.</p>
+</section>
+<section id="application-behavior">
+<h3>6.2 Application behavior<a class="headerlink" href="#application-behavior" title="Permalink to this headline">¶</a></h3>
+<p>The application you are going to write is just a simple LED toggler. You have 2 LEDs which are alternating their on/off state. The alternating speed of the LED states can be modified by twisting the rotary angle sensor.</p>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>LED0</p></th>
+<th class="head"><p>LED1</p></th>
+<th class="head"><p>Remarks</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1</p></td>
+<td><p>0</p></td>
+<td><p>initial state</p></td>
+</tr>
+<tr class="row-odd"><td><p>0</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>1</p></td>
+<td><p>0</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>0</p></td>
+<td><p>1</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>…</p></td>
+<td><p>…</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+<p>The rotary angle sensor has a resolution of 1024 nuances. We want a <strong>maximum toggling interval of 2400 milliseconds</strong>.</p>
+<p>We choose a <strong>minimum toggling interval of 200 milliseconds</strong> and a <strong>step size of 200 milliseconds</strong>. → 2400 ms / 200 ms = 12 different toggling intervals. Figure out how to map these time steps to the raw values of the rotary angle sensor.</p>
+<p>Hint: Avoid calculations and comparisons with floating point numbers. Try to do the arithmetic with integer numbers as far as possible.</p>
+<p>Annexed to this laboratory description is a code template which should serve you as starting point. The template is based on a trivial implementation of the core logic. If you are already a Python expert (or even a Pythonista) with advanced skills, you are absolutely free to implement this application in a more sophisticated manner like using Pythons multiprocessing libraries or the concept of coroutines (asyncio, …).</p>
+</section>
+</section>
+<section id="grading">
+<h2>7. Grading<a class="headerlink" href="#grading" title="Permalink to this headline">¶</a></h2>
+<p>4 points maximum will be awarded for completion of the exercises.</p>
+</section>
+<section id="annex">
+<h2>8. Annex<a class="headerlink" href="#annex" title="Permalink to this headline">¶</a></h2>
+<section id="edit-the-source-files-on-the-development-machine-not-directly-on-the-raspberry-pi">
+<h3>8.1 Edit the source files on the development machine (not directly on the Raspberry Pi)<a class="headerlink" href="#edit-the-source-files-on-the-development-machine-not-directly-on-the-raspberry-pi" title="Permalink to this headline">¶</a></h3>
+<p>If you do not like console text editors and want to edit the sources of your applications in a GUI editor on your development machine, this can be made possible by installing a SMB (Server Message Block protocol) Server on the Raspberry Pi and sharing the directory <strong>/home/pi</strong> out to the network:
+The installation of the samba server is already done on the disk image. The grayed out text can be skipped.</p>
+<ul class="simple">
+<li><p>Install the samba server</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">samba</span></code></p></li>
+</ul>
+</li>
+<li><p>Edit the configuration file (<strong>/etc/samba/smb.conf</strong>) of the samba server in the “share definitions” section as follows (Example: <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">vim</span> <span class="pre">/etc/samba/smb.conf</span></code>):</p>
+<ul>
+<li><p>~ line 189: <strong>browseable = yes</strong></p></li>
+<li><p>~ line 193: <strong>read only = no</strong></p></li>
+</ul>
+</li>
+<li><p>Add the user pi to sambas user management:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">smbpasswd</span> <span class="pre">-a</span> <span class="pre">pi</span></code></p></li>
+<li><p>set the password to: <strong>raspberry</strong></p></li>
+</ul>
+</li>
+<li><p>Restart the daemons:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">service</span> <span class="pre">smbd</span> <span class="pre">restart</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">service</span> <span class="pre">nmbd</span> <span class="pre">restart</span></code></p></li>
+</ul>
+</li>
+</ul>
+<p>This configuration is only a stone’s throw away from the default samba configuration and shares only the pi users home directory (/home/pi) but that should be sufficient for now. If needed, feel free to configure the samba server according your advanced requirements.</p>
+<p>You should now be able to access the shared folder from your development machine:</p>
+<ul class="simple">
+<li><p>Windows:</p>
+<ul>
+<li><p>Address: <strong>\&lt;ip.of.raspberry.pi&gt;\pi</strong></p></li>
+<li><p>Credentials: User: <strong>.\pi</strong>, Password: <strong>raspberry</strong></p></li>
+</ul>
+</li>
+<li><p>Unixoid Systems:</p>
+<ul>
+<li><p>Address: <strong>smb://&lt;ip.of.raspberry.pi&gt;/pi</strong></p></li>
+<li><p>Credentials: User: <strong>pi</strong>, Password: <strong>raspberry</strong>, Workgroup: leave as it is</p></li>
+<li><p>On Linux systems a smb client is required but as experience teaches this client comes already with a base system installation in most of the distributions.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../index.html">
+    <img class="logo" src="../_static/logo.png" alt="Logo"/>
+    
+    <h1 class="logo logo-name">IoT Labs</h1>
+    
+  </a>
+</p>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">01 - Setup Laboratory</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#introduction">1. Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#learning-aims">2. Learning Aims</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#prerequisites">3. Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#getting-started">4. Getting started</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#environment-overview">4.1 Environment overview</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#general-notes-about-the-iot-lab-infrastructure">4.1.1 General notes about the IoT lab infrastructure</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#remote-laboratory">4.2 Remote Laboratory</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#preparing-the-hard-disk-image">4.3 Preparing the hard disk image</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#download-the-hard-disk-image">4.3.1 Download the hard disk image</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#copying-the-image-onto-the-micro-sd-card">4.3.2 Copying the image onto the [micro]SD card</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#assemblage-of-the-raspberry-pi">4.4 Assemblage of the Raspberry Pi</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#grovepi-module">4.4.1 GrovePi module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#assemblage">4.4.2 Assemblage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#firmware-upgrade-of-the-grove-pi-hat">4.4.3 Firmware upgrade of the Grove Pi hat</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#known-issue-only-on-raspberry-pi-1-model-b">Known Issue (only on Raspberry Pi 1 Model B)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#execute-a-first-test-application">5. Execute a first test application</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#launch-application">5.1 Launch application</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#study-the-source-code">5.2 Study the source code</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#brief-information-about-python">5.3 Brief information about Python</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#write-a-simple-python-application-for-the-grovepi-board">6. Write a simple Python application for the GrovePi board</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#grovepi-board-setup">6.1 GrovePi board setup</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#application-behavior">6.2 Application behavior</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#grading">7. Grading</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#annex">8. Annex</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#edit-the-source-files-on-the-development-machine-not-directly-on-the-raspberry-pi">8.1 Edit the source files on the development machine (not directly on the Raspberry Pi)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../lab_02/README.html">02 - CoAP</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../lab_03/README.html">03 - MQTT</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../lab_04/README.html">04 - Cassandra</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="../index.html" title="previous chapter">IoT Laboratories</a></li>
+      <li>Next: <a href="../lab_02/README.html" title="next chapter">02 - CoAP</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, stsh.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.4.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/lab_01/README.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

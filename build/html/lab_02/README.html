@@ -1,0 +1,540 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>02 - CoAP &#8212; IoT Labs  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css" />
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="03 - MQTT" href="../lab_03/README.html" />
+    <link rel="prev" title="01 - Setup Laboratory" href="../lab_01/README.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section class="tex2jax_ignore mathjax_ignore" id="coap">
+<h1>02 - CoAP<a class="headerlink" href="#coap" title="Permalink to this headline">¶</a></h1>
+<section id="introduction">
+<h2>1. Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>This laboratory concentrates on CoAP. An exemplarily device (“thing”) will be implemented. The device manages some sensors and actuators and uses CoAP as protocol to communicate with itself or remote devices (“things”). As device the Raspberry Pi is used. The sensors and actuators are represented by the GrovePi board and its resources (button, led, rotary angle sensor, etc.).</p>
+<p>Further on this laboratory covers also a closer look at the CoAP communication messages.</p>
+<p>The developed code during this laboratory can later on serve as a basis for upcoming projects during the lab lessons. Be sure not to delete it before the course is at it’s end.</p>
+</section>
+<section id="learning-aims">
+<h2>2. Learning Aims<a class="headerlink" href="#learning-aims" title="Permalink to this headline">¶</a></h2>
+<p>There are no learning aims associated with this laboratory exercise.</p>
+</section>
+<section id="prerequisites">
+<h2>3. Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
+<ol class="arabic simple">
+<li><p>Raspberry Pi device (with MAC address labeled around the Ethernet port)
+1.1 [micro]SD card with at least 8 GB capacity
+1.2 Raspberry Pi Power supply</p></li>
+<li><p>1 GrovePi board</p></li>
+<li><p>1 GrovePi Button</p></li>
+<li><p>1 GrovePi LED (colour indifferent)</p></li>
+<li><p>1 computer (your own laptop or a lab machine)
+5.1 Ethernet port<br />
+5.2 SSH client installed (ssh, PuTTY, …)<br />
+5.3 Mozilla Firefox / Google Chrome / Chromium
+5.3.1 Copper (Cu) Firefox Addon
+5.4 Wireshark (Network packet capturing software)
+5.5 Zip software (7-zip, WinZip, …)
+5.6	Editor of your choice for modifying the code base.</p></li>
+</ol>
+</section>
+<section id="getting-started">
+<h2>4. Getting started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h2>
+<section id="a-few-words-of-introduction">
+<h3>4.1 A few words of introduction<a class="headerlink" href="#a-few-words-of-introduction" title="Permalink to this headline">¶</a></h3>
+<p>This laboratory has been developed and tested on a Linux machine. In principal it should work fine on Mac OS X and Windows too. Should you run into problems with the libraries or scripts provided with this laboratory it is maybe worth trying to use a Linux VM on your laptops host system in order to complete all the demanded tasks.</p>
+</section>
+<section id="preparation-of-the-hardware">
+<h3>4.2 Preparation of the hardware<a class="headerlink" href="#preparation-of-the-hardware" title="Permalink to this headline">¶</a></h3>
+<p>Connect the GrovePi board to your Raspberry Pi, then connect a GrovePi LED to the digital pin D4 and a GrovePi button to the digital pin D3. Make sure that the Raspberry Pi and your development machine are connected to the IoT subnet. As mentioned earlier, it is a good idea to turn off all the other network adapters (WLAN, …) on your development machine during the lab. If you are connected to the IoT subnet you should have connectivity to the “internet”.</p>
+</section>
+<section id="installation-of-the-required-packages-already-installed">
+<h3>4.3 Installation of the required packages (already installed)<a class="headerlink" href="#installation-of-the-required-packages-already-installed" title="Permalink to this headline">¶</a></h3>
+<p>It is assumed that you have completed the previous laboratory. Due to that you should have a [micro]SD card with a working Raspbian operating system on it with all the necessary packages installed to interact with the GrovePi board and its resources.</p>
+<p>Start up your Raspberry Pi and log in as pi user via a SSH client of your choice.</p>
+<p>The packages which delivers the ability to talk CoAP requires Python with a version number &gt;= 3.4.x. Python3 is already part of the Raspbian installation on your [micro]SD card but we have to tell python3 about the installed GrovePi packages. Otherwise it will fail to <strong>import grovepi</strong>.</p>
+<p>This is realized by invoking the following commands:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cd</span> <span class="pre">/home/pi/repos/GrovePi/Software/Python/</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">python3</span> <span class="pre">setup.py</span> <span class="pre">install</span></code></p></li>
+</ul>
+<p>Further on, the aiocoap library (on which the coapthing application is based on) requires the Link Header package. It can be installed via the python package manager pip:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">LinkHeader</span></code></p></li>
+</ul>
+</section>
+<section id="upload-and-test-the-provided-code-template">
+<h3>4.4 Upload and test the provided code template<a class="headerlink" href="#upload-and-test-the-provided-code-template" title="Permalink to this headline">¶</a></h3>
+<p>Upload the archive that contains the code template (<strong>CoAP_thing-0.2-dbg.zip</strong>) which is provided with this documentation to your Raspberry Pi and unzip it.
+After that you should see a folder named <strong>CoAP_thing</strong>. Change into the <strong>CoAP_thing/src/</strong> directory, where the following files can be found:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>-rw-r--r-- <span class="m">1</span> pi pi <span class="m">3356</span> Sep <span class="m">30</span> <span class="m">18</span>:23 Actuator.py
+-rw-r--r-- <span class="m">1</span> pi pi <span class="m">4089</span> Sep <span class="m">30</span> <span class="m">18</span>:23 ButtonResource.py
+-rw-r--r-- <span class="m">1</span> pi pi <span class="m">3642</span> Sep <span class="m">30</span> <span class="m">18</span>:23 coapthing.py
+-rw-r--r-- <span class="m">1</span> pi pi <span class="m">4246</span> Sep <span class="m">30</span> <span class="m">18</span>:23 LedResource.py
+-rw-r--r-- <span class="m">1</span> pi pi <span class="m">1284</span> Sep <span class="m">30</span> <span class="m">18</span>:23 log.py
+-rw-r--r-- <span class="m">1</span> pi pi <span class="m">2740</span> Sep <span class="m">30</span> <span class="m">18</span>:23 Sensor.py
+-rw-r--r-- <span class="m">1</span> pi pi <span class="m">2364</span> Sep <span class="m">30</span> <span class="m">18</span>:23 TimeResource.py
+</pre></div>
+</div>
+<p>The program entry point is located in the module <strong>coapthing.py</strong>.</p>
+<p>Start the program: <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">./coapthing.py</span></code></p>
+<p>The application uses a python logger which is configured to be very verbose since the application is in a development state. Do not be concerned about if your console gets spammed with log messages during the application runs.</p>
+<p>To test the functionality of the application it is sufficient for now to test if the connected LED turns on as long as the connected button is pressed and switches off again if the button is released.</p>
+<p>The program can be terminated by pressing <strong>Ctrl + C</strong>.</p>
+</section>
+<section id="browse-coap-resources">
+<h3>4.5 Browse CoAP resources:<a class="headerlink" href="#browse-coap-resources" title="Permalink to this headline">¶</a></h3>
+<p>In order to browse CoAP resources, there is exist browser extensions to do so:</p>
+<section id="firefox-and-the-copper-cu-addon">
+<h4>4.5.1 Firefox and the Copper (Cu) addon<a class="headerlink" href="#firefox-and-the-copper-cu-addon" title="Permalink to this headline">¶</a></h4>
+<p>Due to that fact, a Firefox version prior 56 has to be used, for sending / receiving CoAP messages through a web browser. One finds a portable version of Firefox with a pre-installed Copper addon. The benefit of the portable version is, that it doesn’t affect already installed Firefox versions.</p>
+<p>Unfortunately there is only a portable version for MS Windows operating systems yet. Users of unixoid systems could use a virtual machine or tools like wine, to run the portable Firefox version.</p>
+<p>The portable version of Firefox can be found at:</p>
+<p>Server/Host: <strong>jupiter.lab.iot (ftp://jupiter.lab.iot)</strong><br />
+User: <strong>iotro</strong><br />
+Password: <strong>iotro</strong><br />
+Location on FTP server: <strong>/shared/IoT/p2</strong></p>
+<p>To check if your Firefox browser supports CoAP visit: <strong>coap://coap.me:5683</strong></p>
+<p>The Copper GUI should be displayed and show some resources on the left side.</p>
+</section>
+</section>
+</section>
+<section id="analysis-of-the-coap-protocol">
+<h2>5. Analysis of the CoAP protocol<a class="headerlink" href="#analysis-of-the-coap-protocol" title="Permalink to this headline">¶</a></h2>
+<section id="first-coap-request">
+<h3>5.1 First CoAP request<a class="headerlink" href="#first-coap-request" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><p>If you sucessfully started the CoAP_thing application earlier in this laboratory, log in to
+your Raspberry Pi and start the application again.</p></li>
+<li><p>Start Wireshark on your development machine and capture your LAN interface which is
+connected to the IoT subnet.</p>
+<ul>
+<li><p>If there is to much traffic on that line, write <strong>coap</strong> in the filter field in order
+to hide all the other traffic.</p></li>
+</ul>
+</li>
+<li><p>Open the program Firefox or Chrome/Chromium on your development machine and visit the
+following place (with Chrome you’ll have to enter the URL after clicking the Cu extension
+icon on top right):
+<strong>coap://&lt;ipv4.of.your.raspberrypi&gt;:5683/</strong></p></li>
+<li><p>Press Discover on the Copper GUI.
+This will invoke a GET request to the path <strong>.well-known/core</strong> on the CoAP server.
+<strong>.well-known/core</strong> is a special path which is available on all CoAP servers and it is used
+for resource detection. In the following illustration, the IP addresses are only exemplary.</p></li>
+</ul>
+<p><img alt="scenario_template.png" src="../_images/scenario_template.png" /></p>
+<ul class="simple">
+<li><p>The server should have responded with a list of all his resources. There are some specialties
+to note here. CoAP uses a so called piggyback acknowledgment. As you can see in the
+Wireshark capture the client (Copper) uses a confirmable packet (CON) for the request
+which tells the server that it must send an acknowledgment message. To save bandwidth the
+server tries to combine the ACK and the answer message.</p></li>
+<li><p>Another important thing is the response code. CoAP uses, like HTML, response codes to
+indicate whether a request has succeeded or if it has failed. Check
+<a class="reference external" href="https://tools.ietf.org/html/rfc7252#page-48">https://tools.ietf.org/html/rfc7252#page-48</a> to get a list of possible response codes.</p></li>
+</ul>
+<section id="your-tasks">
+<h4>5.1.1 Your tasks<a class="headerlink" href="#your-tasks" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li><p>Create a solutions folder: <strong>IoT_&lt;DATE_ISO8601&gt;_lab2_&lt;name&gt;</strong></p></li>
+<li><p>Place the capture of the GET request and the answer to it in a sub folder <strong>captures</strong> (name it
+in a sensible way). You can export specific packets like this:</p>
+<ul>
+<li><p>Add a filter expression for the type of packets you want, e.g. <strong>coap</strong></p></li>
+<li><p>Check if the capturing process is stopped.</p></li>
+<li><p>Edit → Mark All Displayed Packets</p></li>
+<li><p>File → Export Specified Packets.</p>
+<ul>
+<li><p>Packet Range: Marked Packets only</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Try to find out how the the answer to the confirmable GET request is structured.</p></li>
+</ul>
+</section>
+</section>
+<section id="coap-in-deep">
+<h3>5.2 CoAP in deep<a class="headerlink" href="#coap-in-deep" title="Permalink to this headline">¶</a></h3>
+<p>The basic procedure to connect to a device which is able to process CoAP requests (Raspberry Pi
+with running CoAP_thing application) should now be clear. Our client to connect to the device is
+the Firefox browser with the Copper (Cu) addon installed.
+To get more familiar with the Copper addon feel free to test its functionalities e.g.:</p>
+<ul class="simple">
+<li><p>Observe the button and see if you can watch its changing value while the button is pressed
+on the device.</p></li>
+<li><p>Try to turn on / switch off the LED on the device by sending <strong>put requests</strong> to the CoAP
+server on the Raspberry Pi. Fill out the request payload in the outgoing tab and send a put
+request. (Valid payload for the LED would be: <strong>True</strong> [On] or <strong>False</strong> [Off])</p></li>
+</ul>
+<section id="id1">
+<h4>5.2.1 Your tasks<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li><p>Start Wireshark to capture on the interface which is connected to the IoT subnet.</p></li>
+<li><p>Run the CoAP_thing application on the Raspberry Pi and connect to it via
+Firefox Copper (Cu) addon: coap://&lt;ipv4.of.your.raspberrypi&gt;:5683/</p></li>
+<li><p>Use the Discover button to discover the resources of the server.</p></li>
+<li><p>Write a get request to /.well-known/core
+(On the Copper GUI click on the core resource and then click GET)</p></li>
+<li><p>Is there any difference in the behavior or the packet content, if so which?
+Export the two transfers to your capture Folder.
+(And do this for all the following requests and answers)</p></li>
+<li><p>There is also a ping button on the Copper GUI. Test it out and check with Wireshark what
+kind of packet is used. Is there e special ping packet/flag?</p></li>
+<li><p>We have already captured the get GET command. Try the other 3 REST commands (POST,
+PUT, DELETE) on the button and the LED resource. Not all commands are implemented on
+all resources. Which are implemented where? If a request fails note it to your answer sheet with the error code.</p></li>
+<li><p>While examining you may have noticed that the LED implements only the PUT method.
+What response code do you get when requesting with a valid payload (True or False)? Send
+the same requests consecutively and check the response code. Also send PUT request with
+invalid payload and see what response code is returned now. Does the returned error code
+support content?</p>
+<ul>
+<li><p>We chose to use PUT over POST as our ‘update’ method. Do you agree with that choice?
+Wouldn’t POST have been better? Should we implement both, as they should behave the
+same, or what should be the difference in your opinion?</p></li>
+</ul>
+</li>
+<li><p>The last and probably most important CoAP command is the observe command. Try to
+observe the button resource and see whats happening if the button is pressed.</p>
+<ul>
+<li><p>Is it a CON or a NON message. Is this a good way to answer to an observe command?
+Why does the Server answer this way? Name at least one scenario each, where CON or
+NON messages are desirable.</p></li>
+</ul>
+</li>
+<li><p>In the behaviour tab a lot of additional options for the packets can be specified. Test them.
+Write down what you have tested and if you found something interesting.</p></li>
+</ul>
+</section>
+<section id="known-bugs-errata">
+<h4>5.2.2 Known Bugs / Errata<a class="headerlink" href="#known-bugs-errata" title="Permalink to this headline">¶</a></h4>
+<p>When working with non confirmable messages and using the coapthing application as “server”,
+then an ACK is returned from the server. This behavior is wrong and results due to a bug in the
+aiocoap library (v-0.2).</p>
+<p><img alt="wrong_behavior_non_confirmable_msgs.png" src="../_images/wrong_behavior_non_confirmable_msgs.png" /></p>
+<p><em>Wrong behavior of NON confirmable CoAP messages.</em></p>
+<p>The correct behavior, tested against <strong>coap://coap.me:5683</strong> would look like:</p>
+<p><img alt="correct_behavior_non_confirmable_msgs.png" src="../_images/correct_behavior_non_confirmable_msgs.png" /></p>
+<p><em>Correct behavior of NON confirmable CoAP messages.</em></p>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="the-coap-thing-application">
+<h2>6. The CoAP_thing application<a class="headerlink" href="#the-coap-thing-application" title="Permalink to this headline">¶</a></h2>
+<p>In this chapter the application which was uploaded to the Raspberry Pi and then used to perform the
+tasks in the CoAP analysis chapter is now going to be examined in a more detailed manner.</p>
+<p>If one is more familiar with the application and the use of the aiocoap package, the application can
+be extended and resources (sensors/actuators) across the IoT subnet can be applied. The aim is that
+the devices (Raspberry Pis) are able to exchange data supplied through the CoAP protocol.</p>
+<section id="study-the-architecture">
+<h3>6.1 Study the architecture<a class="headerlink" href="#study-the-architecture" title="Permalink to this headline">¶</a></h3>
+<p>The application is entirely written in Python (version 3.4.2). The implementation of CoAP is
+provided by the aiocoap package. In general the implementation of CoAP_thing uses object
+orientation, but it was decided to stay in a pragmatic scope and not to exaggerate the object
+orientation.</p>
+<section id="aiocoap-the-python-coap-library">
+<h4>6.1.1 aiocoap - The Python CoAP library<a class="headerlink" href="#aiocoap-the-python-coap-library" title="Permalink to this headline">¶</a></h4>
+<p>The aiocoap package is a Python implementation of CoAP, the Constrained Application Protocol
+(RFC 7252, more info at <a class="reference external" href="http://coap.technology/">http://coap.technology/</a>).</p>
+<p>It uses the asyncio module introduced in Python 3.4 to facilitate concurrent operations while
+maintaining a simple to use interface and not depending on anything outside the standard library.</p>
+<p>Source: <a class="reference external" href="https://github.com/chrysn/aiocoap">https://github.com/chrysn/aiocoap</a></p>
+<p>If further code examples or informations are needed, refer to the aiocoap documentation which can
+be found at: <a class="reference external" href="http://aiocoap.readthedocs.io/en/latest/">http://aiocoap.readthedocs.io/en/latest/</a></p>
+<p><strong>Concept of coroutines</strong></p>
+<p>As mentioned earlier, aiocoap uses coroutines instead of e.g. threads to manage concurrent
+instructions. To solve all the tasks within this laboratory it should be sufficient to consult the code of
+the CoAP_thing template, to get it all managed with async coroutines.</p>
+<p>Since this is not mainly a Python course but if you still want to gain a profound understanding of
+asynchronous I/O, event loop, coroutines and tasks, the documentation of Python’s asyncio package
+is located at:<br />
+<a class="reference external" href="https://docs.python.org/3.4/library/asyncio.html">https://docs.python.org/3.4/library/asyncio.html</a></p>
+<p>A revealing depiction with a sequence diagram of a very basic coroutine implementation can be
+found at:<br />
+<a class="reference external" href="https://docs.python.org/3.4/library/asyncio-task.html#example-chain-coroutines">https://docs.python.org/3.4/library/asyncio-task.html#example-chain-coroutines</a></p>
+</section>
+<section id="basic-concept">
+<h4>6.1.2 Basic concept<a class="headerlink" href="#basic-concept" title="Permalink to this headline">¶</a></h4>
+<p>The CoAP_thing application consists of a main module, coapthing, which represents a CoAP
+server. The server itself provides resources (sensors and actuators) which can be reached, observerd
+and modified via a CoAP URI, e.g.: <strong>coap://&lt;ipv4.of.raspberry.pi&gt;:5683/actuators/led0</strong></p>
+<p>The basic CoAP_thing template consists of a CoAP server with the following resources (all <strong>observable</strong>):</p>
+<ul class="simple">
+<li><p><strong>button0</strong>: GrovePi Button</p></li>
+<li><p><strong>led0</strong>: GrovePi LED</p></li>
+<li><p><strong>clock0</strong>: Resource which gets the operating system’s time and serves it to the requester.</p></li>
+</ul>
+<p>The resources have the following class structure:</p>
+<p><img alt="CoAP_thing_class_diagram.png" src="../_images/CoAP_thing_class_diagram.png" /></p>
+<p>This class diagram shows only the most important functions / instance variables at current classes.</p>
+<p><strong>Key Points of the application regarding CoAP</strong></p>
+<p>PUT requests are sent when actuators are getting notified. Check out the code of the method
+notify_actuator in the ButtonResource and the Sensor class. The payload of the sensor value is
+encoded as ASCII characters before sending (This makes it easier to interpret when capturing CoAP
+messages).</p>
+<p>The PUT requests are processed on the actuator side within the <strong>render_put</strong> method.</p>
+<p>GET requests on the Sensor as well on the Actuator side are processed within the <strong>render_get</strong>
+method. See classes Sensor, LedResource for example.</p>
+<p>All the other CoAP mechanisms (observe, discover, …) are handled by the aiocoap library. As you
+can see, we derive all our classes from the ObservableResource class from the aiocoap.resource
+package.</p>
+</section>
+<section id="object-diagram">
+<h4>6.1.3 Object diagram<a class="headerlink" href="#object-diagram" title="Permalink to this headline">¶</a></h4>
+<p>The following object diagram illustrates the CoAP_thing server in its running state:</p>
+<p><img alt="CoAP_thing_object_diagram.png" src="../_images/CoAP_thing_object_diagram.png" /></p>
+<p>This trivial server implementation has one button which has only one actuator to notify. In this case
+the actuator is located on the same machine as the sensor (localhost).</p>
+</section>
+<section id="network-situation">
+<h4>6.1.4 Network situation<a class="headerlink" href="#network-situation" title="Permalink to this headline">¶</a></h4>
+<p><img alt="scenario_0.png" src="../_images/scenario_0.png" /></p>
+<p>The IP addresses are only exemplary!</p>
+</section>
+</section>
+<section id="expand-the-application">
+<h3>6.2 Expand the application<a class="headerlink" href="#expand-the-application" title="Permalink to this headline">¶</a></h3>
+<p>Now after getting a first glance, the basic concept of the CoAP_thing application should be
+understood. For this task at least 2 Raspberry Pi’s are needed. Therefore you should work in goups
+of two or three.</p>
+<p>To start and see if the CoAP_thing application also works spreaded over a network, it is
+recommended that a very simple network scenario is implemented first.</p>
+<section id="scenario-2-rpi-s-1-button-2-led-s">
+<h4>6.2.1 Scenario: 2 RPi’s, 1 button, 2 LED’s<a class="headerlink" href="#scenario-2-rpi-s-1-button-2-led-s" title="Permalink to this headline">¶</a></h4>
+<p>Try to extend the application to achieve the following situation:</p>
+<p><img alt="scenario_1.png" src="../_images/scenario_1.png" /></p>
+<p>The IP addresses are only exemplary!</p>
+<p>If everything was adjusted the right way, the LED’s on both Raspberry Pi should light up when the
+button is pressed and switch off when the button is released again.</p>
+</section>
+<section id="scenario-2-rpi-s-1-button-1-rotary-angle-sensor-3-led-s">
+<h4>6.2.2 Scenario: 2 RPi’s, 1 button, 1 rotary angle sensor, 3 LED’s<a class="headerlink" href="#scenario-2-rpi-s-1-button-1-rotary-angle-sensor-3-led-s" title="Permalink to this headline">¶</a></h4>
+<p>It is not mandatory to implement exactly this scenario. This is just a proposal. You are free to
+choose and implement every sensor/actuator that is available in the laboratory. The only condition is
+that your distributed application is somewhat more sophisticated than the one in the previous
+scenario.</p>
+<p><img alt="scenario_2.png" src="../_images/scenario_2.png" /></p>
+<p>The IP addresses are only exemplary!</p>
+<p>Additional to the previos scenario a rotary angle sensor and another LED were connected to the
+GrovePi boards here. The rotary angle sensor should dim the LED. (Remember the first laboratory,
+example GrovePi Python scripts.)</p>
+<p>But now the sensor values have to be transferred over the network. Try to implement the resources
+and think about how this could be done and which values have to be transmitted.</p>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="prepare-your-own-iot-project">
+<h2>7. Prepare your own IoT project<a class="headerlink" href="#prepare-your-own-iot-project" title="Permalink to this headline">¶</a></h2>
+<p>In the last laboratories of this course you will have the task to write your own IoT application. This
+means you will implement a client/server application on your Raspberry Pi similar to the
+CoAP_thing application we have just worked with. The communication of the application parts has
+to be realized with the lightweight protocols CoAP or MQTT (see later laboratory). The application
+should announce its resources to the world (like our CoAP_thing) and also run some logic to use its
+actuators for a meaningful application. You can also use a database if you want to e.g. record sensor
+data and derive some statistic plots at a given time. A later laboratory covers the setup and basic
+commands of a distributed data base system. You will have the chance to order additional special
+sensors/actuators for your project.</p>
+<p>Basically the IoT project is meant to be realized in groups with 2 – 3 members.</p>
+<section id="id2">
+<h3>7.1 Your tasks<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><p>Think of an application for your Raspberry Pi. It will need to meet the following criteria:</p>
+<ul>
+<li><p>Usage of local sensors</p></li>
+<li><p>Publication of all your Resources via a protocol (CoAP or MQTT)
+(Except you have valid reasons not to do that. [Privacy])</p></li>
+<li><p>Usage of remote sensors (the application consitst of at least 3 Raspberry Pis)</p></li>
+</ul>
+</li>
+<li><p>Additional Points</p>
+<ul>
+<li><p>Usage of complex Sensors Cameras etc. (Keep in mind that you will only have 4-8h to
+complete the Task don’t over do it).</p></li>
+<li><p>Usage of a Database (at least a file system)</p></li>
+</ul>
+</li>
+<li><p>Clever usage of database values. (database design)</p>
+<ul>
+<li><p>Usage of global sensors (not from within the IoT class)
+(only if there is a reason to use them)</p></li>
+<li><p>Usage of hybrid technologies like using additional protocols like HTTP proxies, etc.</p></li>
+</ul>
+</li>
+<li><p>Until next laboratory:</p>
+<ul>
+<li><p>Have a broad concept of what you want to do</p></li>
+<li><p>Check the stock in the IoT laboratory room if you find all the sensors/actuators you
+require for your own project. If you can’t find all the material, then check
+<a class="reference external" href="https://www.pi-shop.ch/">https://www.pi-shop.ch/</a> for sensors/actuators (GrovePi) you will need to
+accomplish that concept. <strong>Also check the availability of the items you want to have
+ordered (sometimes delivery times may exceed the end of the semester)!</strong></p></li>
+<li><p>Inform your lecturer about your concept and what sensors/actuators you need to
+materialize your idea. Also where they are going to be set up. Maybe some
+devices/sensors/actuators can be shared within the IoT class.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+<section id="grading">
+<h2>8. Grading<a class="headerlink" href="#grading" title="Permalink to this headline">¶</a></h2>
+<p>3 points maximum will be awarded for completion of the exercises.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../index.html">
+    <img class="logo" src="../_static/logo.png" alt="Logo"/>
+    
+    <h1 class="logo logo-name">IoT Labs</h1>
+    
+  </a>
+</p>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../lab_01/README.html">01 - Setup Laboratory</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">02 - CoAP</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#introduction">1. Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#learning-aims">2. Learning Aims</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#prerequisites">3. Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#getting-started">4. Getting started</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#a-few-words-of-introduction">4.1 A few words of introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#preparation-of-the-hardware">4.2 Preparation of the hardware</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#installation-of-the-required-packages-already-installed">4.3 Installation of the required packages (already installed)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#upload-and-test-the-provided-code-template">4.4 Upload and test the provided code template</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#browse-coap-resources">4.5 Browse CoAP resources:</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#firefox-and-the-copper-cu-addon">4.5.1 Firefox and the Copper (Cu) addon</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#analysis-of-the-coap-protocol">5. Analysis of the CoAP protocol</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#first-coap-request">5.1 First CoAP request</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#your-tasks">5.1.1 Your tasks</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#coap-in-deep">5.2 CoAP in deep</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id1">5.2.1 Your tasks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#known-bugs-errata">5.2.2 Known Bugs / Errata</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#the-coap-thing-application">6. The CoAP_thing application</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#study-the-architecture">6.1 Study the architecture</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#aiocoap-the-python-coap-library">6.1.1 aiocoap - The Python CoAP library</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#basic-concept">6.1.2 Basic concept</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#object-diagram">6.1.3 Object diagram</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#network-situation">6.1.4 Network situation</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#expand-the-application">6.2 Expand the application</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#scenario-2-rpi-s-1-button-2-led-s">6.2.1 Scenario: 2 RPi’s, 1 button, 2 LED’s</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#scenario-2-rpi-s-1-button-1-rotary-angle-sensor-3-led-s">6.2.2 Scenario: 2 RPi’s, 1 button, 1 rotary angle sensor, 3 LED’s</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#prepare-your-own-iot-project">7. Prepare your own IoT project</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id2">7.1 Your tasks</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#grading">8. Grading</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../lab_03/README.html">03 - MQTT</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../lab_04/README.html">04 - Cassandra</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="../lab_01/README.html" title="previous chapter">01 - Setup Laboratory</a></li>
+      <li>Next: <a href="../lab_03/README.html" title="next chapter">03 - MQTT</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, stsh.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.4.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/lab_02/README.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

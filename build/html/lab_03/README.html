@@ -1,0 +1,697 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>03 - MQTT &#8212; IoT Labs  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css" />
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="04 - Cassandra" href="../lab_04/README.html" />
+    <link rel="prev" title="02 - CoAP" href="../lab_02/README.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section class="tex2jax_ignore mathjax_ignore" id="mqtt">
+<h1>03 - MQTT<a class="headerlink" href="#mqtt" title="Permalink to this headline">¶</a></h1>
+<section id="introduction">
+<h2>1. Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>This Lab will concentrate on MQTT (Message Queue Telemetry Transport). We setup a Broker on
+the Raspberry Pi and play around with several clients and will have a closer look to the telemetry
+data that we publish and subscribe. As last part of this laboratory the CoAP application from the
+previous laboratory is going to be refactored to use the MQTT protocol instead of CoAP.</p>
+</section>
+<section id="learning-aims">
+<h2>2. Learning Aims<a class="headerlink" href="#learning-aims" title="Permalink to this headline">¶</a></h2>
+<p>There are no learning aims associated with this laboratory exercise.</p>
+</section>
+<section id="prerequisites">
+<h2>3. Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
+<p>For this lab you need some parts from the previous lab, but basically the MQTT part will also work
+if you start from scratch.</p>
+<ol class="arabic simple">
+<li><p>1 Raspberry Pi device (with MAC address labelled around the ethernet port)<br />
+1.1. [micro]SD card with at least 8 GB capacity<br />
+1.2. Raspberry Pi Power supply</p></li>
+<li><p>1 GrovePi board</p></li>
+<li><p>1 GrovePi button</p></li>
+<li><p>1 GrovePi LED (colour indifferent)</p></li>
+<li><p>1 computer (your own laptop or a lab machine)<br />
+5.1. Ethernet port connected to the IoT subnet
+(Recommendation: WLAN switched off)<br />
+5.2. SSH client installed (ssh, PuTTY, …)<br />
+5.3. Wireshark (Network packet capturing software)<br />
+5.4. Zip software (7-zip, WinZip, …)<br />
+5.5. Editor of your choice for modifying the code base.</p></li>
+</ol>
+</section>
+<section id="getting-started">
+<h2>4. Getting started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h2>
+<section id="a-few-words-of-introduction">
+<h3>4.1 A few words of introduction<a class="headerlink" href="#a-few-words-of-introduction" title="Permalink to this headline">¶</a></h3>
+<p>This laboratory has been developed and tested on a Linux machine. In principal it should work fine
+on Mac OS X and Windows too. Should you run into problems with the libraries or scripts provided
+with this laboratory it is maybe worth trying to use a Linux VM on your laptops host system in
+order to complete all the demanded tasks.</p>
+</section>
+<section id="preparation-of-the-hardware">
+<h3>4.2 Preparation of the hardware<a class="headerlink" href="#preparation-of-the-hardware" title="Permalink to this headline">¶</a></h3>
+<p>Connect the GrovePi board to your Raspberry Pi, then connect a GrovePi LED to the digital pin D4
+and a GrovePi button to the digital pin D3. Make sure that the Raspberry Pi and your development
+machine are connected to the IoT subnet. As mentioned earlier, it is a good idea to turn off all the
+other network adapters (WLAN, …) on your development machine during the lab. If you are
+connected to the IoT subnet you should have connectivity to the “internet”.</p>
+</section>
+<section id="installation-of-the-required-packages-already-installed">
+<h3>4.3 Installation of the required packages (already installed)<a class="headerlink" href="#installation-of-the-required-packages-already-installed" title="Permalink to this headline">¶</a></h3>
+<p>It is assumed that you have completed the previous laboratories. Due to that you should have a
+[micro]SD card with a working Raspbian operating system on it with all the necessary packages
+installed to interact with the GrovePi board and its resources.</p>
+<p>Start up your Raspberry Pi and log in as pi user via a SSH client of your choice.</p>
+<p>The following additional packages are used during this laboratory:</p>
+<ul class="simple">
+<li><p>netifaces package (system interface in python to access low level network subsystem
+information)</p>
+<ul>
+<li><p>Installation command:<br />
+<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">netifaces</span> <span class="pre">(python3)</span></code></p></li>
+</ul>
+</li>
+<li><p>Mosquitto. MQTT broker which we install locally on the Raspberry Pi to send messages
+during the first parts of this laboratory. It runs as a service.</p>
+<ul>
+<li><p>Installation commands:<br />
+<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">update</span></code><br />
+<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">mosquitto</span></code></p>
+<ul>
+<li><p>Control the service: <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">service</span> <span class="pre">mosquitto</span> <span class="pre">[</span> <span class="pre">status</span> <span class="pre">|</span> <span class="pre">start</span> <span class="pre">|</span> <span class="pre">stop</span> <span class="pre">]</span></code></p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Mosquitto-Clients. MQTT client to publish and subscribe MQTT messages</p>
+<ul>
+<li><p>Installation command:<br />
+<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">mosquitto-clients</span></code></p></li>
+</ul>
+</li>
+<li><p>Paho MQTT is a Python library which implements the MQTT protocol.</p>
+<ul>
+<li><p>Installation command:<br />
+<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">paho-mqtt</span> <span class="pre">(python3)</span></code></p></li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+<section id="mqtt-basics">
+<h2>5. MQTT Basics<a class="headerlink" href="#mqtt-basics" title="Permalink to this headline">¶</a></h2>
+<section id="publish-and-subscribe">
+<h3>5.1 Publish and subscribe<a class="headerlink" href="#publish-and-subscribe" title="Permalink to this headline">¶</a></h3>
+<p>First of all, we run the mosquitto broker.</p>
+<ul class="simple">
+<li><p>Open a terminal/console and type <code class="docutils literal notranslate"><span class="pre">mosquitto</span></code>. The output should show you the mosquitto
+version number and some information about the opened socket for ipv4 and ipv6, if
+available.</p>
+<ul>
+<li><p>If you get an error message, be sure the broker does not run as a background task. (It
+does work too, but you can’t see the standard output with ease).
+Type <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">service</span> <span class="pre">mosquitto</span> <span class="pre">stop</span></code>, to stop the mosquitto daemon on your system.</p></li>
+</ul>
+</li>
+<li><p>The broker is now up and listens on all your interfaces on port 1883.</p></li>
+<li></li>
+</ul>
+<p>Now we are going to start a subscriber that receives every message (absolutely everything) thats
+published to this broker. It works as a logging console that logs every data passed through the
+broker, we do that only to see whats happening. It isn’t mandatory and can be omitted if you feel
+familiar with MQTT.</p>
+<ul class="simple">
+<li><p>Open another terminal, connect to your Raspberry Pi and type:
+<code class="docutils literal notranslate"><span class="pre">mosquitto_sub</span> <span class="pre">-h</span> <span class="pre">127.0.0.1</span> <span class="pre">-p</span> <span class="pre">1883</span> <span class="pre">-t</span> <span class="pre">&quot;#&quot;</span> <span class="pre">-v</span></code></p>
+<ul>
+<li><p>-h: stands for host<br />
+-p: port<br />
+-t: topic<br />
+-v: verbose, print the received topic<br />
+#: a wildcard that show all subsequent levels of hierarchy in the topic string for more
+information see the man pages by typing <code class="docutils literal notranslate"><span class="pre">man</span> <span class="pre">mosquitto</span></code> and search the man page with
+<strong>/WILDCARD TOPIC.</strong></p></li>
+</ul>
+</li>
+<li><p>In the first terminal where the broker is running you should see a message:<br />
+<code class="docutils literal notranslate"><span class="pre">“New</span> <span class="pre">client</span> <span class="pre">connected</span> <span class="pre">from</span> <span class="pre">\&lt;ip&gt;</span> <span class="pre">as</span> <span class="pre">\&lt;name&gt;”</span>&#160; </code><br />
+Now you are ready to use the broker.</p></li>
+</ul>
+<section id="mosquitto-broker-as-a-service">
+<h4>5.1.1 Mosquitto broker as a service<a class="headerlink" href="#mosquitto-broker-as-a-service" title="Permalink to this headline">¶</a></h4>
+<p>Later on if you want to have your own mosquitto broker on the Raspberry Pi you can run it as a
+service. Control of the mosquitto service as follows:</p>
+<p>Enable: <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">systemctl</span> <span class="pre">enable</span> <span class="pre">mosquitto</span></code><br />
+Start: <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">systemctl</span> <span class="pre">start</span> <span class="pre">mosquitto</span></code><br />
+Stop: <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">systemctl</span> <span class="pre">stop</span> <span class="pre">mosquitto</span></code><br />
+Disable: <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">systemctl</span> <span class="pre">disable</span> <span class="pre">mosquitto</span></code><br />
+Status: <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">systemctl</span> <span class="pre">status</span> <span class="pre">mosquitto</span></code></p>
+</section>
+<section id="go-deeper-hack-it">
+<h4>5.1.2 Go deeper, hack it!<a class="headerlink" href="#go-deeper-hack-it" title="Permalink to this headline">¶</a></h4>
+<p>To play around we use the Rasperry Pi with several terminals (SSH sessions). Each of this terminal
+acts like a client, so you can simulate lots of clients on your Raspberry Pi with ease.</p>
+<ul class="simple">
+<li><p>Open a further Terminal, connect to your Raspberry Pi and publish some payload data,
+probably a “hello world”, with the <code class="docutils literal notranslate"><span class="pre">mosquitto_pub</span></code> command to your localhost (127.0.0.1 or
+the IP address of the Raspberry Pi’s network interface). The log on the mosquitto broker
+terminal should be altered and on the subscribing terminal you should see the topic and the
+payload. E.g.:</p>
+<ul>
+<li><p>Subscribing terminal:<br />
+<code class="docutils literal notranslate"><span class="pre">mosquitto_sub</span> <span class="pre">-h</span> <span class="pre">127.0.0.1</span> <span class="pre">-p</span> <span class="pre">1883</span> <span class="pre">-t</span> <span class="pre">&quot;#&quot;</span> <span class="pre">-v</span></code></p></li>
+<li><p>Publishing terminal:<br />
+<code class="docutils literal notranslate"><span class="pre">mosquitto_pub</span> <span class="pre">-h</span> <span class="pre">127.0.0.1</span> <span class="pre">-p</span> <span class="pre">1883</span> <span class="pre">-t</span> <span class="pre">&quot;&lt;IP-ADDRESS&gt;/sensors/button0&quot;</span> <span class="pre">-m</span> <span class="pre">&quot;Hello,</span> <span class="pre">World!&quot;</span></code></p></li>
+</ul>
+</li>
+<li><p>Open another terminal session that subscribes just to your chosen topic.</p>
+<ul>
+<li><p>Figure out how the topic wildcards work. (+ and #) Consult the mosquitto man pages
+section “Wildcard Topic Subscriptions”</p>
+<ul>
+<li><p>For example: Test the wildcards subscription. Subscribe to all machines HDD
+temperatures (each HDD a machine contains):<br />
+Exemplary publish commands:<br />
+<code class="docutils literal notranslate"><span class="pre">mosquitto_pub</span> <span class="pre">-h</span> <span class="pre">127.0.0.1</span> <span class="pre">-p</span> <span class="pre">1883</span> <span class="pre">-m</span> <span class="pre">&quot;75</span> <span class="pre">degrees</span> <span class="pre">Celsius&quot;</span> <span class="pre">-t</span> <span class="pre">/machines/&lt;IP-ADDRESS_1&gt;/sensors/temperature/hdds/sdf</span></code><br />
+<code class="docutils literal notranslate"><span class="pre">mosquitto_pub</span> <span class="pre">-h</span> <span class="pre">127.0.0.1</span> <span class="pre">-p</span> <span class="pre">1883</span> <span class="pre">-m</span> <span class="pre">&quot;75</span> <span class="pre">degrees</span> <span class="pre">Celsius&quot;</span> <span class="pre">-t</span> <span class="pre">/machines/&lt;IP-ADDRESS_1&gt;/sensors/temperature/hdds/sdj</span></code><br />
+<code class="docutils literal notranslate"><span class="pre">mosquitto_pub</span> <span class="pre">-h</span> <span class="pre">127.0.0.1</span> <span class="pre">-p</span> <span class="pre">1883</span> <span class="pre">-m</span> <span class="pre">&quot;75</span> <span class="pre">degrees</span> <span class="pre">Celsius&quot;</span> <span class="pre">-t</span> <span class="pre">/machines/&lt;IP-ADDRESS_2&gt;/sensors/temperature/hdds/sdb</span></code><br />
+Elaborate a valid wildcard subscription and test it.</p></li>
+<li><p>Further example: Get data of each sensor of all machines / IP addresses:<br />
+Exemplary publish commands:<br />
+<code class="docutils literal notranslate"><span class="pre">mosquitto_pub</span> <span class="pre">-h</span> <span class="pre">127.0.0.1</span> <span class="pre">-p</span> <span class="pre">1883</span> <span class="pre">-m</span> <span class="pre">&quot;200</span> <span class="pre">RPM&quot;</span> <span class="pre">-t</span> <span class="pre">/machines/&lt;IPADDRESS_</span> <span class="pre">1&gt;/sensors/fanspeed/socket0</span></code><br />
+<code class="docutils literal notranslate"><span class="pre">mosquitto_pub</span> <span class="pre">-h</span> <span class="pre">127.0.0.1</span> <span class="pre">-p</span> <span class="pre">1883</span> <span class="pre">-m</span> <span class="pre">&quot;85</span> <span class="pre">degrees</span> <span class="pre">Celsius&quot;</span> <span class="pre">-t</span> <span class="pre">/machines/&lt;IP-ADDRESS_2&gt;/sensors/temperature/cpus/cpu0</span></code><br />
+Elaborate a valid wildcard subscription and test it.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>Start many publishers and produce a bit of load with loops</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">while</span> <span class="pre">true;</span> <span class="pre">do</span> <span class="pre">mosquitto_pub</span> <span class="pre">&lt;arguments&gt;;</span> <span class="pre">done</span></code></p></li>
+<li><p>measure/discover the CPU load of the broker (Rasperry Pi in our case)
+and see whats happening.</p></li>
+</ul>
+</li>
+<li><p>Publish and subscribe to a broker from your neighbors computer …</p>
+<ul>
+<li><p>Each student should start at least a publisher and a subscriber connecting to a common
+broker. Try to chat via MQTT.<br />
+Fact: These concepts are the fundamentals of the Facebook Messenger, which uses
+MQTT to simply transmit telemetry data from client to client.</p></li>
+</ul>
+</li>
+</ul>
+<p>Now you should have enough experience with publishing and subscribing. But some of you would
+ask about security. At the moment if you know the IP of a broker you can listen to everything. That
+is, in fact, totally against privacy. We step into user authentication and topic access control lists in
+the next chapter.</p>
+</section>
+</section>
+<section id="user-authentication-and-access-control-lists">
+<h3>5.2 User Authentication and Access Control Lists<a class="headerlink" href="#user-authentication-and-access-control-lists" title="Permalink to this headline">¶</a></h3>
+<p>MQTT provides two types to secure your data. First is a more common user authentication where a
+subscriber and a publisher has to login. The second concept is based on the topics. It simply allows
+a user to publish or subscribes only to some predefined topics.</p>
+<section id="it-s-all-about-users-and-their-passwords">
+<h4>5.2.1 It’s all about users and their passwords<a class="headerlink" href="#it-s-all-about-users-and-their-passwords" title="Permalink to this headline">¶</a></h4>
+<p>To start, we modify the broker configuration.</p>
+<ul class="simple">
+<li><p>Copy the original <strong>mosquitto.conf</strong> file to a folder of your choice.<br />
+<code class="docutils literal notranslate"><span class="pre">cp</span> <span class="pre">/etc/mosquitto/mosquitto.conf</span> <span class="pre">/folder/of/your/choice</span></code></p></li>
+<li><p>Open a further terminal, connect to your Raspberry Pi and open either the mosquitto.conf
+man page <code class="docutils literal notranslate"><span class="pre">man</span> <span class="pre">mosquitto.conf</span></code> or the example configuration file:
+<code class="docutils literal notranslate"><span class="pre">cp/usr/share/doc/mosquitto/examples/mosquitto.conf.gz</span> <span class="pre">~</span></code><br />
+<code class="docutils literal notranslate"><span class="pre">gunzip</span> <span class="pre">mosquitto.conf.gz</span></code><br />
+<code class="docutils literal notranslate"><span class="pre">vim</span> <span class="pre">mosquitto.conf</span></code><br />
+Like this you have a reference to look after and have example configuration parameters.</p></li>
+<li><p>Open your copy of the configuration file in an editor. Find the chapter “Security” in the
+<strong>example configuration file</strong>, get an overview and perform the following steps in your copy
+of the configuration file:</p>
+<ul>
+<li><p>Deny anonymous access
+allow_anonymous false</p></li>
+<li><p>Add a userlist in an additional file</p>
+<ul>
+<li><p>Note: To store passwords in a plain text file is not save for production. Never do that.
+In live applications, you need an authentication server that communicates with
+mosquitto. If you like, setup the mosquitto-auth-plugin and configure it for your
+computer. But this is really optional and not part of this lab.<br />
+The reason for this “works like” authentication we use, is because of insufficient
+time for this lab. But if you like, setup the auth-server and use it maybe in a future
+lab (e.g.: your IoT project).<br />
+A full description of the configuration file is at:
+<code class="docutils literal notranslate"><span class="pre">/usr/share/doc/mosquitto/examples/mosquitto.conf.gz</span></code><br />
+Example:<br />
+<code class="docutils literal notranslate"><span class="pre">password_file</span> <span class="pre">/home/pi/mosquitto_passwords</span></code><br />
+(line in your configuration file)<br />
+Use the <code class="docutils literal notranslate"><span class="pre">mosquitto_passwd</span></code> utility to add the users to a given password file:<br />
+<code class="docutils literal notranslate"><span class="pre">mosquitto_passwd</span> <span class="pre">-c</span> <span class="pre">/home/pi/mosquitto_passwords</span> <span class="pre">user1</span></code><br />
+<code class="docutils literal notranslate"><span class="pre">mosquitto_passwd</span> <span class="pre">/home/pi/mosquitto_passwords</span> <span class="pre">user2</span></code><br />
+<code class="docutils literal notranslate"><span class="pre">mosquitto_passwd</span> <span class="pre">/home/pi/mosquitto_passwords</span> <span class="pre">user3</span></code></p></li>
+</ul>
+</li>
+<li><p>Start the broker with:<br />
+<code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">mosquitto</span> <span class="pre">-c</span> <span class="pre">/&lt;path&gt;/&lt;to&gt;/&lt;your&gt;/mosquitto.conf</span></code></p></li>
+<li><p>Try to publish and subscribe to the broker.</p>
+<ul>
+<li><p>If you fall into trouble, try: <code class="docutils literal notranslate"><span class="pre">mosquitto_sub/pub</span> <span class="pre">–help</span></code></p></li>
+<li><p>Note that your global subscriber should now subscribe with a username and a
+password, e.g:<br />
+<code class="docutils literal notranslate"><span class="pre">mosquitto_sub</span> <span class="pre">-h</span> <span class="pre">127.0.0.1</span> <span class="pre">-p</span> <span class="pre">1883</span> <span class="pre">-t</span> <span class="pre">&quot;#&quot;</span> <span class="pre">-v</span> <span class="pre">-u</span> <span class="pre">user1</span> <span class="pre">-P</span> <span class="pre">iotlab</span></code><br />
+<code class="docutils literal notranslate"><span class="pre">mosquitto_pub</span> <span class="pre">-h</span> <span class="pre">127.0.0.1</span> <span class="pre">-p</span> <span class="pre">1883</span> <span class="pre">-m</span> <span class="pre">&quot;85</span> <span class="pre">degrees</span> <span class="pre">Celsius&quot;</span> <span class="pre">-t</span> <span class="pre">/machines/&lt;IP-ADDRESS&gt;/sensors/temperature/cpus/cpu0</span> <span class="pre">-u</span> <span class="pre">user2</span> <span class="pre">-P</span> <span class="pre">iotlab</span></code></p></li>
+</ul>
+</li>
+<li><p>Add a user for your neighbor and ask him to publish a cat joke to your broker.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="authorized-but-insufficient-access-rights">
+<h4>5.2.2 Authorized but insufficient access rights<a class="headerlink" href="#authorized-but-insufficient-access-rights" title="Permalink to this headline">¶</a></h4>
+<p>Now we restrict the topics with access control lists (ACL). It is possible to allow just a few topics
+for some users that will publish or subscribe.</p>
+<p>ACL has several access mechanics. Simply allow just a few topics, allow some topics only
+for given user or allow topics that matches a predefined pattern. We try all of them. (Howto
+descriptions could be found in the example mosquitto configuration file
+<strong>[/usr/share/doc/mosquitto/examples]</strong> under the security chapter).</p>
+<ul class="simple">
+<li><p>Add the following rules to your ACL and test it. To do so, define some tests and fill out the
+test table at the bottom of this page and test against your ACL.</p>
+<ul>
+<li><p>The topic scheme is <strong>/sensor/&lt;type&gt;/data</strong>. All authorized users are allowed to
+subscribe to this topic.</p></li>
+<li><p>One of your users in the userlist can publish and subscribe to the previous defined
+scheme.</p></li>
+<li><p>Another user of your userlist can publish only to <strong>/sensor/temperature/data</strong>.</p></li>
+<li><p>All users are allowed to publish to <strong>/sensor/&lt;username&gt;/&lt;type&gt;/data.</strong><br />
+Use a pattern for this.</p></li>
+</ul>
+</li>
+<li><p>Set the “allow_anonymous” flag to true and test again all your topic rules in your ACL. Are
+they working correctly?</p></li>
+</ul>
+<table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Topic</p></th>
+<th class="head"><p>User</p></th>
+<th class="head"><p>Publish</p></th>
+<th class="head"><p>Subscribe</p></th>
+<th class="head"><p>Expectation</p></th>
+<th class="head"><p>PASSED</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>/sensor/temperature/data</p></td>
+<td><p>user1</p></td>
+<td><p>-</p></td>
+<td><p>X</p></td>
+<td><p>PASS</p></td>
+<td><p>(y/n)</p></td>
+</tr>
+<tr class="row-odd"><td><p>/sensor/temperature/data</p></td>
+<td><p>user1</p></td>
+<td><p>X</p></td>
+<td><p>-</p></td>
+<td><p>FAIL</p></td>
+<td><p>(y/n)</p></td>
+</tr>
+<tr class="row-even"><td><p>/sensor/temperature/data</p></td>
+<td><p>user1</p></td>
+<td><p>-</p></td>
+<td><p>X</p></td>
+<td><p>PASS</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>/sensor/temperature/data</p></td>
+<td><p>user2</p></td>
+<td><p>-</p></td>
+<td><p>X</p></td>
+<td><p>PASS</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>/sensor/temperature/data</p></td>
+<td><p>user3</p></td>
+<td><p>-</p></td>
+<td><p>X</p></td>
+<td><p>PASS</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>/sensor/temperature/data</p></td>
+<td><p>user117</p></td>
+<td><p>-</p></td>
+<td><p>X</p></td>
+<td><p>FAIL</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>/sensor/fanspeed/data</p></td>
+<td><p>user1</p></td>
+<td><p>X</p></td>
+<td><p>-</p></td>
+<td><p>PASS</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>/sensor/fanspeed/data</p></td>
+<td><p>user1</p></td>
+<td><p>-</p></td>
+<td><p>X</p></td>
+<td><p>PASS</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>/sensor/fanspeed/data</p></td>
+<td><p>user2</p></td>
+<td><p>X</p></td>
+<td><p>-</p></td>
+<td><p>FAIL</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>/sensor/fanspeed/data</p></td>
+<td><p>user2</p></td>
+<td><p>-</p></td>
+<td><p>X</p></td>
+<td><p>PASS</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>/sensor/fanspeed/data</p></td>
+<td><p>user3</p></td>
+<td><p>X</p></td>
+<td><p>-</p></td>
+<td><p>FAIL</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>/sensor/fanspeed/data</p></td>
+<td><p>user3</p></td>
+<td><p>-</p></td>
+<td><p>X</p></td>
+<td><p>PASS</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>/sensor/temperature/data</p></td>
+<td><p>user2</p></td>
+<td><p>X</p></td>
+<td><p>-</p></td>
+<td><p>PASS</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>/sensor/fanspeed/data</p></td>
+<td><p>user2</p></td>
+<td><p>X</p></td>
+<td><p>-</p></td>
+<td><p>FAIL</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>/sensor/user1/temperature/data</p></td>
+<td><p>user1</p></td>
+<td><p>X</p></td>
+<td><p>-</p></td>
+<td><p>PASS</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p>/sensor/user2/temperature/data</p></td>
+<td><p>user2</p></td>
+<td><p>X</p></td>
+<td><p>-</p></td>
+<td><p>PASS</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p>/sensor/user3/temperature/data</p></td>
+<td><p>user3</p></td>
+<td><p>X</p></td>
+<td><p>-</p></td>
+<td><p>PASS</p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+</section>
+<section id="the-mqtt-thing-application">
+<h2>6 The MQTT_thing application<a class="headerlink" href="#the-mqtt-thing-application" title="Permalink to this headline">¶</a></h2>
+<p>In the previous laboratory, a simple CoAP application was built to let sensors and actuators
+communicate with each other via CoAP. In this chapter, the aim is to build the same application
+with the same functional behaviour, but the messaging between the devices should be realized with
+the MQTT protocol.</p>
+<p>The IoT subnet provides a MQTT broker which can be used by the MQTT_thing application. Of
+course you can use the broker installation on your Raspberry Pi if you prefer. When working on
+the laboratory at your site/infrastructure, then you must use the broker on your Raspberry Pi.
+The broker from the ZHAW IoT laboratory infrastructure is not available from outside of the
+laboratory rooms.</p>
+<section id="mqtt-broker">
+<h3>6.1 MQTT broker<a class="headerlink" href="#mqtt-broker" title="Permalink to this headline">¶</a></h3>
+<p>A MQTT broker should be reachable from within the IoT subnet under the IP address:
+<strong>172.16.32.5</strong></p>
+<p>The configuration of the broker is by default, so no restrictions or missing permissions are set.
+Every client can connect. Be sure to choose a unique client-id to connect, otherwise the broker gets
+confused.</p>
+<p>Your client can publish and/or subscribe to every possible topic.</p>
+</section>
+<section id="upload-and-test-the-provided-code-template">
+<h3>6.2 Upload and test the provided code template<a class="headerlink" href="#upload-and-test-the-provided-code-template" title="Permalink to this headline">¶</a></h3>
+<p>Upload the archive that contains the code template (<strong>MQTT_thing-0.3-dbg.zip</strong>) which is provided
+with this documentation to your Raspberry Pi and unzip it.</p>
+<p>After that you shoud see a folder named <strong>MQTT_thing</strong>. Change into the <strong>MQTT_thing/src/</strong> directory,
+where the following files can be found:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>-rw-r--r-- <span class="m">1</span> pi pi <span class="m">2812</span> Oct <span class="m">17</span> <span class="m">03</span>:07 Actuator.py
+-rw-r--r-- <span class="m">1</span> pi pi <span class="m">2858</span> Oct <span class="m">17</span> <span class="m">03</span>:07 ButtonResource.py
+-rw-r--r-- <span class="m">1</span> pi pi <span class="m">2858</span> Oct <span class="m">17</span> <span class="m">03</span>:07 grove_pi_interface.py
+-rw-r--r-- <span class="m">1</span> pi pi <span class="m">3800</span> Oct <span class="m">17</span> <span class="m">03</span>:07 LedResource.py
+-rw-r--r-- <span class="m">1</span> pi pi <span class="m">1284</span> Oct <span class="m">17</span> <span class="m">03</span>:07 log.py
+-rw-r--r-- <span class="m">1</span> pi pi <span class="m">2527</span> Oct <span class="m">17</span> <span class="m">03</span>:07 mqttconfig.py
+-rwxr-xr-x <span class="m">1</span> pi pi <span class="m">5273</span> Oct <span class="m">17</span> <span class="m">03</span>:07 mqttthing.py
+-rw-r--r-- <span class="m">1</span> pi pi <span class="m">2709</span> Oct <span class="m">17</span> <span class="m">03</span>:07 Sensor.py
+-rw-r--r-- <span class="m">1</span> pi pi <span class="m">2820</span> Oct <span class="m">17</span> <span class="m">03</span>:07 TimeResource.py
+-rw-r--r-- <span class="m">1</span> pi pi <span class="m">1616</span> Oct <span class="m">17</span> <span class="m">03</span>:07 tools.py
+</pre></div>
+</div>
+<p>Start the program: <code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">./mqttthing.py</span></code></p>
+<p>The application uses a python logger which is configured to be very verbose since the application is
+in a development state. Do not be concerned about if your console gets spammed with log messages
+during the application runs.</p>
+<p>To test the functionality of the application it is sufficient for now to test if the connected LED turns
+on as long as the connected button is pressed and switches off again if the button is released.</p>
+<p>The application has also implemented a clock resource. This resource publishes the current system
+time to a MQTT broker. To check this, you can open a terminal, connect to your Raspberry Pi and
+subscribe to this topic:</p>
+<p><code class="docutils literal notranslate"><span class="pre">mosquitto_sub</span> <span class="pre">-h</span> <span class="pre">&lt;BROKER-IP&gt;</span> <span class="pre">-t</span> <span class="pre">&quot;&lt;RaspberryPi-IP&gt;/stuff/clock0&quot;</span></code></p>
+<p>The program can be terminated by pressing <strong>Ctrl + C</strong>.</p>
+</section>
+<section id="study-the-architecture">
+<h3>6.3 Study the architecture<a class="headerlink" href="#study-the-architecture" title="Permalink to this headline">¶</a></h3>
+<p>The application is entirely written in Python (version 3.4.2). The implementation of MQTT is
+provided by the paho-mqtt package. In general the implementation of MQTT_thing uses object
+orientation, but it was decided to stay in a pragmatic scope and not to exaggerate the object
+orientation.</p>
+<section id="basic-concept">
+<h4>6.3.1 Basic concept<a class="headerlink" href="#basic-concept" title="Permalink to this headline">¶</a></h4>
+<p>The MQTT_thing application consists of a main module, <strong>mqttthing</strong>, which represents a MQTT
+client. The client itself has resources (sensors and actuators) which can be reached via an
+appropriate MQTT topic.</p>
+<p>The basic MQTT_thing template consists of a MQTT client with the following resources:</p>
+<ul class="simple">
+<li><p><strong>button0</strong>: GrovePi Button</p></li>
+<li><p><strong>led0</strong>: GrovePi LED</p></li>
+<li><p><strong>clock0</strong>: Resource which gets the operating system’s time and serves it to the requester.</p></li>
+</ul>
+<p>The resources have the following class structure:</p>
+<p><img alt="MQTT_thing_class_diagram.png" src="../_images/MQTT_thing_class_diagram.png" /></p>
+<p>This class diagram shows only the most important functions / instance variables at current classes.</p>
+<p>As you can see this application uses pythons pseudo threads to manage parallel tasks instead of
+coroutines which were used to implement the CoAP_thing application. The reason for this is mainly
+because of the paho-mqtt package, which is also based on python threads.</p>
+<p>Study and try to understand the code. Be aware of the multithreading mechanisms like locks,
+running flags, etc.</p>
+</section>
+<section id="network-situation">
+<h4>6.3.2 Network situation<a class="headerlink" href="#network-situation" title="Permalink to this headline">¶</a></h4>
+<p><img alt="scenario_template.png" src="../_images/scenario_template1.png" /></p>
+<p>The IP addresses are only exemplary!</p>
+<p>The CoAP_thing application implemented a classical approach of the observer pattern. A sensor
+was polled and if its state changed, all the observers of the sensor were notified. The MQTT_thing
+application is completely different:</p>
+<p><strong>Sensors publish their state changes on a specific topic, via MQTT broker.</strong></p>
+<p><strong>Actuators subscribe on the topic that they are interested in, via MQTT broker.</strong></p>
+</section>
+</section>
+<section id="expand-the-application">
+<h3>6.4 Expand the application<a class="headerlink" href="#expand-the-application" title="Permalink to this headline">¶</a></h3>
+<p>Now after getting a first glance, the basic concept of the MQTT_thing application should be
+understood. For this task at least 2 Raspberry Pi’s are needed. Therefore you should work in goups
+of two or three.</p>
+<p>To start and see if the MQTT_thing application also works distributed over a network, it is
+recommended that a very simple network scenario is implemented first.</p>
+<section id="scenario-2-rpi-s-1-button-2-led-s">
+<h4>6.4.1 Scenario: 2 RPi’s, 1 button, 2 LED’s<a class="headerlink" href="#scenario-2-rpi-s-1-button-2-led-s" title="Permalink to this headline">¶</a></h4>
+<p>Try to extend the application to achieve the following situation:</p>
+<p><img alt="scenario_0.png" src="../_images/scenario_01.png" /></p>
+<p>The IP addresses are only exemplary!</p>
+<p>If everything was adjusted the right way, the LED’s on both Raspberry Pi’s should light up when the
+button is pressed and switch off when the button is released again.</p>
+</section>
+<section id="scenario-2-rpi-s-1-button-1-rotary-angle-sensor-3-led-s">
+<h4>6.4.2 Scenario: 2 RPi’s, 1 button, 1 rotary angle sensor, 3 LED’s<a class="headerlink" href="#scenario-2-rpi-s-1-button-1-rotary-angle-sensor-3-led-s" title="Permalink to this headline">¶</a></h4>
+<p>It is not mandatory to implement exactly this scenario. This is just a proposal. You are free to
+choose and implement every sensor/actuator that is available in the laboratory. The only condition is
+that your distributed application is somewhat more sophisticated than the one in the previous
+scenario.</p>
+<p><img alt="scenario_1.png" src="../_images/scenario_11.png" /></p>
+<p>The IP addresses are only exemplary!</p>
+<p>Additional to the previos scenario a rotary angle sensor and another LED were connected to the
+GrovePi boards here. The rotary angle sensor should dim the LED. (Remember the first laboratory,
+example GrovePi Python scripts.)</p>
+<p>But now the sensor values have to be transferred over the network. Try to implement the resources
+and think about how this could be done and which values have to be transmitted.</p>
+</section>
+</section>
+</section>
+<section id="grading">
+<h2>7 Grading<a class="headerlink" href="#grading" title="Permalink to this headline">¶</a></h2>
+<p>3 points maximum will be awarded for completion of the exercises.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<p class="logo">
+  <a href="../index.html">
+    <img class="logo" src="../_static/logo.png" alt="Logo"/>
+    
+    <h1 class="logo logo-name">IoT Labs</h1>
+    
+  </a>
+</p>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../lab_01/README.html">01 - Setup Laboratory</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../lab_02/README.html">02 - CoAP</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">03 - MQTT</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#introduction">1. Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#learning-aims">2. Learning Aims</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#prerequisites">3. Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#getting-started">4. Getting started</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#a-few-words-of-introduction">4.1 A few words of introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#preparation-of-the-hardware">4.2 Preparation of the hardware</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#installation-of-the-required-packages-already-installed">4.3 Installation of the required packages (already installed)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#mqtt-basics">5. MQTT Basics</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#publish-and-subscribe">5.1 Publish and subscribe</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mosquitto-broker-as-a-service">5.1.1 Mosquitto broker as a service</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#go-deeper-hack-it">5.1.2 Go deeper, hack it!</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#user-authentication-and-access-control-lists">5.2 User Authentication and Access Control Lists</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#it-s-all-about-users-and-their-passwords">5.2.1 It’s all about users and their passwords</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#authorized-but-insufficient-access-rights">5.2.2 Authorized but insufficient access rights</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#the-mqtt-thing-application">6 The MQTT_thing application</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#mqtt-broker">6.1 MQTT broker</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#upload-and-test-the-provided-code-template">6.2 Upload and test the provided code template</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#study-the-architecture">6.3 Study the architecture</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#basic-concept">6.3.1 Basic concept</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#network-situation">6.3.2 Network situation</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#expand-the-application">6.4 Expand the application</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#scenario-2-rpi-s-1-button-2-led-s">6.4.1 Scenario: 2 RPi’s, 1 button, 2 LED’s</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#scenario-2-rpi-s-1-button-1-rotary-angle-sensor-3-led-s">6.4.2 Scenario: 2 RPi’s, 1 button, 1 rotary angle sensor, 3 LED’s</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#grading">7 Grading</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../lab_04/README.html">04 - Cassandra</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="../lab_02/README.html" title="previous chapter">02 - CoAP</a></li>
+      <li>Next: <a href="../lab_04/README.html" title="next chapter">04 - Cassandra</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2022, stsh.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.4.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/lab_03/README.md.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
